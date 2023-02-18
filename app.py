@@ -74,14 +74,9 @@ class Show(db.Model):
   __tablename__ = 'Show'
 
   id = db.Column(db.Integer, primary_key=True)
-  artist_id = db.Column(db.Integer, db.ForeignKey('Artist.id'), primary_key=True)
-  venue_id = db.Column(db.Integer, db.ForeignKey('Venue.id'), primary_key=True)
+  artist_id = db.Column(db.Integer, db.ForeignKey('Artist.id'), nullable=False)
+  venue_id = db.Column(db.Integer, db.ForeignKey('Venue.id'), nullable=False)
   start_time = db.Column(db.String(120), nullable=False, default=datetime.now().strftime("%d/%m/%Y %H:%M:%S"))
-
-  def __init__(self, artist_id, venue_id, start_time):
-    self.artist_id = artist_id
-    self.venue_id = venue_id
-    self.start_time = start_time
 
 #----------------------------------------------------------------------------#
 # Filters.
@@ -503,42 +498,23 @@ def create_artist_submission():
 def shows():
   # displays list of shows at /shows
   # TODO: replace with real venues data.
-  data=[{
-    "venue_id": 1,
-    "venue_name": "The Musical Hop",
-    "artist_id": 4,
-    "artist_name": "Guns N Petals",
-    "artist_image_link": "https://images.unsplash.com/photo-1549213783-8284d0336c4f?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=300&q=80",
-    "start_time": "2019-05-21T21:30:00.000Z"
-  }, {
-    "venue_id": 3,
-    "venue_name": "Park Square Live Music & Coffee",
-    "artist_id": 5,
-    "artist_name": "Matt Quevedo",
-    "artist_image_link": "https://images.unsplash.com/photo-1495223153807-b916f75de8c5?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=334&q=80",
-    "start_time": "2019-06-15T23:00:00.000Z"
-  }, {
-    "venue_id": 3,
-    "venue_name": "Park Square Live Music & Coffee",
-    "artist_id": 6,
-    "artist_name": "The Wild Sax Band",
-    "artist_image_link": "https://images.unsplash.com/photo-1558369981-f9ca78462e61?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=794&q=80",
-    "start_time": "2035-04-01T20:00:00.000Z"
-  }, {
-    "venue_id": 3,
-    "venue_name": "Park Square Live Music & Coffee",
-    "artist_id": 6,
-    "artist_name": "The Wild Sax Band",
-    "artist_image_link": "https://images.unsplash.com/photo-1558369981-f9ca78462e61?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=794&q=80",
-    "start_time": "2035-04-08T20:00:00.000Z"
-  }, {
-    "venue_id": 3,
-    "venue_name": "Park Square Live Music & Coffee",
-    "artist_id": 6,
-    "artist_name": "The Wild Sax Band",
-    "artist_image_link": "https://images.unsplash.com/photo-1558369981-f9ca78462e61?ixlib=rb-1.2.1&ixid=eyJhcHBfaWQiOjEyMDd9&auto=format&fit=crop&w=794&q=80",
-    "start_time": "2035-04-15T20:00:00.000Z"
-  }]
+  data = []
+  error = False
+  try:
+    shows = Show.query.all()
+    for show in shows:
+      data.append({
+              'venue_id' :show.venue_id,
+              'venue_name' :show.Venue.name,
+              'artist_id' :show.artist_id,
+              'artist_name' :show.Artist.name,
+              'artist_image_link' :show.Artist.image_link,
+              'start_time' :show.start_time
+          })
+  except:
+    error = True
+  if error:
+    flash('An error occurred. Shows cannot be listed.')
   return render_template('pages/shows.html', shows=data)
 
 @app.route('/shows/create')
@@ -549,14 +525,30 @@ def create_shows():
 
 @app.route('/shows/create', methods=['POST'])
 def create_show_submission():
-  # called to create new shows in the db, upon submitting new show listing form
-  # TODO: insert form data as a new Show record in the db, instead
+  error = False  
+  try:  
+   # called to create new shows in the db, upon submitting new show listing form
+   # TODO: insert form data as a new Show record in the db, instead  
+   artist_id = request.form['artist_id']
+   venue_id = request.form['venue_id']
+   start_time = request.form['start_time']
+   show = Show(artist_id = artist_id, venue_id=venue_id, start_time=start_time)  
+  # TODO: modify data to be the data object returned from db insertion
+   db.session.add(show)
+   db.session.commit()
+  except:   
+    db.session.rollback() 
+    error = True 
+  finally:
+    db.session.close()
 
-  # on successful db insert, flash success
-  flash('Show was successfully listed!')
-  # TODO: on unsuccessful db insert, flash an error instead.
-  # e.g., flash('An error occurred. Show could not be listed.')
-  # see: http://flask.pocoo.org/docs/1.0/patterns/flashing/
+  if error:
+    # TODO: on unsuccessful db insert, flash an error instead.
+    flash('An error occurred. Show could not be listed.')
+  else:
+    # on successful db insert, flash success
+    flash('Show was successfully listed!')
+
   return render_template('pages/home.html')
 
 @app.errorhandler(404)
